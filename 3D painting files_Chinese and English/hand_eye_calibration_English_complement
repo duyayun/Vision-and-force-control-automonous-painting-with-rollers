@@ -1,0 +1,52 @@
+##############
+This is a complement file of hand_eye_calibration in addition to the file 'hand_eye_calibration_English.txt' based on the problems I met during experiments.
+Written by Yayun Du, 09/03/2020
+If you have any questions, feel free to contact me at duyayun1hit@yahoo.com.hk
+##############
+
+1. When I did experiments, I was stuck with the problem
+sawyer and moveit can't be connected and 'execute' always failes and there is a prompt 'rpbot_state is not received within 1s'.
+
+What I did:
+Chnage line 46 in 'move_group.launch' file under package folder "sawyer_moveit_config" into
+<node name="move_group" launch-prefix="$(arg launch_prefix)" pkg="moveit_ros_move_group" type="move_group" respawn="false" output="screen" args="joint_states:=/joint_states  $(arg command_args)">
+The most important thing is: 
+'joint_states:=/robot/joint_states' in this line is changed to be 'joint_states:=/joint_states'. In this way, 'movegroup' can subscribe the topic 'joint_states'.
+Even if the robot published topic '/robot/joint_states' before us making changes and it is also subscribed by 'move_group'. However, comparing with the topic 'joint_states'，the content inside the two topics
+might be different(just my guess, and it needs to be verified). Because '/robot/joint_states' is first subscribed by node '/joint_state_publisher'， and then node '/joint_state_publisher'publishes 'joint_states'.
+In this way, '/joint_state_publisher' might process and change the content of '/robot/joint_states' and then send the new content to 'joint_states', which will be different from '/robot/joint_states'. But I'm not
+sure what changes are made, and they should be the increase or decrease of some content.
+
+2. When launch the file 'single.launch' under folder 'aruco_ros'，there is a parameter 'image_is_rectified', the defalut is 'true'. However, you need to check if the outpu image of camera is distorted. If not, you can keep it as default 'true'.
+If the imges are distorted, meaning that the rectification is not done well, we should set it as 'false'. aruco will call '/camera_info' where the parameter matrix of the camera is included. If there does exist distortion, it is kind of troublesome
+as you need to do the calibration. 
+One more parameter "camera_frame" it should be 'camera_color_optical_frame'，you can double check.
+
+3. easy_handeye calibration has two modes，
+1> automatic calibration: This is the same as the demo given, there are two interfaces. In one interface, click 'next pose', and then click 'plan', then the automatic planning is executed. Finally click 'execute'.
+2> manual calibration: This needs you to change the vlalue of parameter 'start_rqt' to false in 'calibrate.launch' file. There is no interface, what you need to do is to open a new terminal, go to the workspace "easy_handeye",
+and then 'source' it and run 
+>> rosrun easy_handeye handeye_calibration_commander.py
+There will be some prompts in the terminal, the function is the same as the interface in the automatic mode. It mainly aims at recording and calculating data. Once we move the robotic arm to one place, we need to 'record' the information.
+and repeat the process nice times so that we can get the transformation matrix. 
+automatic calibration mode is preferred and if it doesn't work, manual calibration is the other choice.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

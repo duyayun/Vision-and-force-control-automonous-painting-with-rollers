@@ -1,0 +1,44 @@
+1 sawyer和moveit无法连接，execute总是失败，提示1s内接收不到robot state.
+改动sawyer_moveit_config包里面的launch下的move_group.launch中的第46行，改成
+<node name="move_group" launch-prefix="$(arg launch_prefix)" pkg="moveit_ros_move_group" type="move_group" respawn="false" output="screen" args="joint_states:=/joint_states  $(arg command_args)">
+主要是这一行里的joint_states:=/robot/joint_states改成joint_states:=/joint_states，这样movegroup就能订阅到joint_states这个话题，虽然改之前机器人发布了/robot/joint_states这个话题，move_group也订阅了，但是
+相比于joint_states这个话题，可能两者内容会有写不一样（有待确定，只是猜想），因为/robot/joint_states是先被/joint_state_publisher节点订阅，然后/joint_state_publisher节点发布了joint_states，这样/joint_state_publisher可能对/robot/joint_states发布的内容做了一些处理才给了joint_states，这样joint_states和/robot/joint_states可能就会产生一些差异，具体的处理不清楚，应该是一些简单的内容的增减。
+
+2 在启动aruco_ros里的那个single.launch文件的时候，里面有一个参数是image_is_rectified，昨天的文档里我没说明，就是默认true，实际上需要看一下，如果相机输出的图片都是没有畸变的，那么这里就默认是true就可以了，
+这个参数是设置你输入进来的图片是不是已经矫正过了，如果有畸变，那就设置成false，aruco会调用/camera_info那个参数设置的话题里面的内容，就是相机的内参，帮助你矫正。但是很麻烦的是如果有畸变，你可能就要先标定
+一下相机得到相机的内参，这个也有点麻烦。等你起来确认一下再看要不要标定。
+还有一个参数 "camera_frame" ,这里我看了一下，应该是camera_color_optical_frame，你可以确认一下，应该是这个
+
+3 easy_handeye是有两种模式，自动标定，就是他demo给的例子，两个界面，点一下next pose,然后咱们点一下plan,就自动规划，然后点execute,自动执行；
+还有一种手动模式，这个就是在calibrate.launch文件里面改一下参数start_rqt的值，改成false，就是手动，手动模式就没有界面，需要先重新启动一个终端，进入easy_handeye的工作空间，然后source一下，然后运行
+rosrun easy_handeye handeye_calibration_commander.py，这个终端启动之后会有一些指令提示，功能和之前自动的界面一样，主要是记录，删除记录，还有计算，然后咱们自己操控机械臂到一个位置，然后记录一下，
+再操控，再记录，这样做，记录大概9个点以上理论上就可以计算啦。
+咱们优先用自动模式，如果自动模式不行咱们再用手动模式。
+
+4最后一点是camera到基座的静态坐标问题，昨天我说的是先跳过那一段，如果不行再尝试，今天发现不用做那一段了，calibrate.launch文件里已经默认发布了，在第34行，
+args="1 1 1 0 1.5 0 $(arg robot_base_frame) $(arg tracking_base_frame) 10" />
+这个就是发布了camera到base的静态坐标，如果你不想改可以用默认的，但是也可以量一下相机和基座的大概的坐标变换关系，替换一下，从左到右分别是，x,y,z，r,p,y。建议先用默认的，结果不精确的话再改。只要改数就可以了，it is around 75 90 45
+后面的参数不用管。
+
+说了这么多，目前你要做的就是确认相机有没有畸变，如果畸变不严重，那就什么都不用改啦，就按照昨天的教程就可以啦，这几条都是用来处理特殊情况的。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+cd ros_ws/
+./intera.sh
+rosrun intera_interface enable_robot.py -e 
+

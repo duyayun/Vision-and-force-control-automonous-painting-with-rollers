@@ -1,0 +1,156 @@
+################ 
+Written by Yayun Du 09/03/2020
+Feel free to contact me at duyayun1hit@yahoo.com.hk if you have any questions
+################
+
+
+I. 1. The package needed is called easy_handeye and can be found here: https://github.com/IFL-CAMP/easy_handeye. Follow the instructions to finish building，but doesn't run first，and do not run: source devel/setup.bash；
+
+2. aruco_ros, https://github.com/pal-robotics/aruco_ros, please use the following commands. For convenience, I put this package together with "realsense_ros" in the workspace named as "hand_eye_ws" to differentiate with the workspace "easy_handeye" established before.
+Otherwise, they will get mixed up because "easy_handeye" uses 'catkin_build' so these two workspaces need to be separated. Open a terminal and input the instructions as follows:
+mkdir hand_eye_ros,
+cd hand_eye_ros,
+mkdir src,
+cd src,
+git clone https://github.com/pal-robotics/aruco_ros.git,
+cd ..,
+catkin_make,
+
+
+The workspace "hand_eye_ros" will be useful later for the calibration of transformation from the calibration board to camera.
+
+The "moveit" package for Sawyer can be found here: https://github.com/RethinkRobotics/sawyer_moveit. Follow the instructions given by the official website to utilize 'moveit' to control the robotic arm:
+http://sdk.rethinkrobotics.com/intera/MoveIt_Tutorial。MoveIt is necessary to control and plan the movement of the robotic arm based on the postures calculated by the package "handeye".
+
+
+3. Here, I will give more details of steps in the official tutorial above. In the terminals, input:
+>> rosrun intera_interface enable_robot.py -e，(control the robot arm)
+>> rosrun intera_interface joint_trajectory_action_server.py，(interface control program)
+>> roslaunch sawyer_moveit_config sawyer_moveit.launch electric_gripper:=true  (we use electric_gripper)
+
+4. Then, to test whether MoveIt is connected with the robot or not, we drag the robotic arm to move a little bit not that much. Otherwise, the planning sucess is not ensured.
+Then, in Rviz, click the second choice in the left-bottom column. You can refer the picture in the tutorial and click 'plan' inside 'planning'. You should see the robotic arm trace is planned, if you miss it, reclick 'plan'；
+If you think the trace planned, click 'execute', confirm that when the robotic arm moves, the robot in Rviz is also shown moving. Other parts in the tutorial is not useful for now. Just to remind you because you might not 
+understand and don't need to spend time reading them.
+
+
+5. This part, driver for 'realsense' camera, is kind of troublesome realsense. First install the library file, during this process, remmember DO NOT connect the camera with the computer.
+Go to the place where you want to place the file and input in the terminal:
+
+>> mkdir realsense,
+>> cd realsense,
+>> git clone https://github.com/IntelRealSense/librealsense.git,
+>> cd librealsense,
+>> sudo apt-get update && sudo apt-get upgrade && sudo apt-get dist-upgrade，
+>> sudo apt-get install git libssl-dev libusb-1.0-0-dev pkg-config libgtk-3-dev，
+>> sudo apt-get install libglfw3-dev，
+>> ./scripts/setup_udev_rules.sh，
+>> mkdir build,
+>> cd build,
+>> cmake ../,
+>> sudo make uninstall && make clean && make && sudo make install,
+>> cd ../
+>> sudo cp config/99-realsense-libusb.rules /etc/udev/rules.d,
+>> sudo udevadm control --reload-rules && udevadm trigger,
+
+
+6. I don't know whether undoing the following steps is fine or not，but according to the online tutorials，these steps will install the new core on the operating system. For now, I don't find any problems and all my programs
+before can run as well.
+
+>> uname -r, (show the core of the operating system)
+>> sudo apt-get install libssl-dev,
+>> ./scripts/patch-realsense-ubuntu-lts.sh,
+>> cd ./scripts/,
+>> sudo gedit patch-arch.sh,
+>> Substitute the content behind 'SRC_VERSION_ID=' on line 11 with the output from 'uname -r'. E.g., mine is 4.15, save and exit.
+>> sudo ./patch-arch.sh,
+If it says that there is no such command，go to find where the file is and then right click->properties->set the file as executable.
+
+7. Next, install package "realsense_ros"，
+we already finished installing "hand_eye_ws" package just now，then input the following commands in the terminal:
+>> cd hand_eye_ws/src,
+>> git clone https://github.com/IntelRealSense/realsense-ros.git,
+>> cd ..,
+>> catkin_make,
+There might have an error: ddynamic_reconfigureConfig.cmake. If it does happen, input the following commands:
+>> sudo apt-get install ros-kinetic-ddynamic-reconfigure，
+>> catkin_make。
+Next，test the camera, in the current terminal，plug in the camera，
+>> source devel/setup.bash
+>> roslaunch realsense2_camera rs_camera.launch，
+Then restart a new terminal and run:
+>> rviz,
+
+In the interface of rviz, click 'add' button，include 'image'，and then randomly choose a topic from the drop-down menu under 'image', the real-time picture caught by the camera shoud appear。
+If there is a picture, click the down arrow of 'map' under 'fixed_frame'，please take a photo of the names of the 'frame', which will be used later.
+
+II. Once all the packages are installed, we need to activate them now. 
+
+1. First, we will activate 'Sawyer_moveit' and just use the commands mentioned above during installation to start the package.
+2. Next, start the 'camera' package, the main step is to launch 'rs_camera.launch' file.
+
+>> cd hand_eye_ws，
+>> source devel/setup.bash,
+>> roslaunch realsense2_camera rs_camera.launch 
+
+3. Next, start "aruco_ros"，we need to change some parameters，open the file 'single.launch' in the package folder "aruco_ros"，and then check what parammeters are here，the parameters of camera
+should be matching the ones of the camera we are using. Based on last step activating the driver of camera, open a new terminal and then input:
+
+>> rqt_graph，
+Then, find the full name of the topic including something like '/camera_info'，and then replace the content after 'to' within the quotes after '/camera_info' in the launch file. 
+Same process applies to 'image', find the topic including 'image_rect_color' and replace it. Other than that, you also need to replace the size of calibration board, ID, and the coordinate of camera.
+Here is an example of the calibration of UR within "easy_handeye" folder showing how they replace all the parameters, which can be a reference. Many names are very similar.
+        <remap from="/camera_info" to="/camera/rgb" />
+        <remap from="/image" to="/camera/rgb/image_rect_color" />
+        <param name="image_is_rectified" value="true"/>
+        <param name="marker_size"        value="$(arg marker_size)"/>
+        <param name="marker_id"          value="$(arg marker_id)"/>
+        <param name="reference_frame"    value="camera_link"/>
+        <param name="camera_frame"       value="camera_rgb_optical_frame"/>
+        <param name="marker_frame"       value="camera_marker" />
+After changing all of the things mentioned above, close 'rqt_graph'. Open a new terminal and go to the same workspace by 
+>> cd hand_eye_ws，
+>> source devel/setup.bash,
+>> roslaunch aruco_ros single.launch, 
+
+4. Next start "easy_handeye"，
+This 'launch'file should be very similar to the 'launch' file under 'easy_handeye/docs/example_launch'. I made some changes, you can copy it and then
+Create a new 'launch' file under the path '/easy_handeye/easy_handeye/launch'. NOTICE: this path is different from the one earlier, 'example_launch'. Fon't mix them，and you can just name it 
+as 'calibrate_realsense.launch'. Then, paste the following into the file.
+
+<launch>
+    <arg name="namespace_prefix" default="sawyer_realsense_handeyecalibration" />
+
+    <!-- start easy_handeye -->
+    <include file="$(find easy_handeye)/launch/calibrate.launch" >
+        <arg name="namespace_prefix" value="$(arg namespace_prefix)" />
+        <arg name="eye_on_hand" value="false" />
+	<arg name="start_rviz" value="false" />
+        <arg name="tracking_base_frame" value="camera_link" />
+        <arg name="tracking_marker_frame" value="camera_marker" />
+        <arg name="robot_base_frame" value="base_link" />
+        <arg name="robot_effector_frame" value="wrist_3_link" />
+
+        <arg name="freehand_robot_movement" value="false" />
+        <arg name="robot_velocity_scaling" value="0.5" />
+        <arg name="robot_acceleration_scaling" value="0.2" />
+    </include>
+
+</launch>
+
+
+5. Finally, open a new terminal, go to the workspace, and then input
+>> source devel/setup.bash，
+>> roslaunch easy_handeye calibrate_realsense.launch,
+Two interfaces should appear and now you are ready to perform hand/eye calibration. Please follow the calibration following the tutorial here: https://www.wengbi.com/thread_77528_1.html，
+
+1> Click 'check starting pose',
+2> Then wait five seconds until 'check' is done. The prompt will change from 'hello' to 'cannot calibrate....',
+and then click 'next pose'. Now you can click 'plan' if 'plan' button is lit. If it shows 'good plan', you can click 'execute'
+3> Finally, go to the other interface and click 'take sample'.
+Repeat the above steps until all the postures are done, i.e. the progress bar reaches 100% and then click 'compute' and 'save'. The data will be saved at '~/.ros/easy_handeye/---.yaml'. 
+This '---.yaml的---' is the 'namespace_prefix' in the earlier 'calibrate_realsense.launch' file. Also, 'sawyer_realsense_handeyecalibration.yaml' and "~/.ros" folder are in the hidden folder which can be found
+ under "home" path under which you can click 'ctrl+h' to show all hidden files.
+
+
+

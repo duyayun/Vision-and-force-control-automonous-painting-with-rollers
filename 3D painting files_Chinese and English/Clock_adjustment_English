@@ -1,0 +1,18 @@
+1.Run 
+>> date +%s & rostopic echo -n 1 /robot/joint_states/header/stamp/secs
+The output should be two time which are absolutely different and the unit of both is [second], the first line is the clock of your laptop and the second line is the timestamp of the robotic arm.
+I remember when the difference between two time is 18000 [seconds], the clock of the laptop is slower than the robot so I add the difference to the laptop clock to synchronize them. 
+2.Run 
+>> sudo date -s hh:mm:ss    
+hh is hours，mm is minutes，ss stands for seconds. Sum the current time on the laptop with the time difference, we will get the time the system should be. Then, run step 1 again to check the difference and repeat 2 
+until the difference is within 0.5 seconds. I didn't find a better method to solve the problem but if you find it, please do let me know.
+
+Next, you can try it again whether you can run moveit or not.
+
+下面这句命令行是看机械臂的系统时间和笔记本的系统时间的差别，输出的结果里那个特别大的数就是两者相差的时间，单位是毫秒，这个结果比上面的第一句更精确，傻老婆也可以根据这个差值去设置。
+Below is the command to see the difference between the laptop clock and the robot system time, the output is the difference with a unit of [ms]. This one is more accurate than the one above, you can also set according
+to this output.
+
+>> clockdiff -o 169.254.163.27 (IP of the robot)
+>> clockdiff -o 169.254.154.21   Correct
+>> sudo date -s hh:mm:ss

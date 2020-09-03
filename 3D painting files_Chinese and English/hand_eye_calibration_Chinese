@@ -1,0 +1,142 @@
+1需要下载编译的包
+easy_handeye包，https://github.com/IFL-CAMP/easy_handeye, 按照官方教程编译完成，先不运行，暂时不用source devel/setup.bash,后面要运行的时候会有命令行步骤；
+
+aruco_ros, https://github.com/pal-robotics/aruco_ros, 下载编译过程如下,我为了省事，后面把这个包和相机的realsense_ros包都放在了一个工作空间，我起名叫hand_eye_ws，跟上面那个easy_handeye工作空间名字不一样呀，要不然就混了，上面那个因为编译用的是catkin_build，所以没跟这俩放一起：
+打开终端，
+mkdir hand_eye_ros,
+cd hand_eye_ros,
+mkdir src,
+cd src,
+git clone https://github.com/pal-robotics/aruco_ros.git,
+cd ..,
+catkin_make,
+现在hand_eye_ros这个目录就是aruco_ros这个包的工作空间，后面会用到，这个包的作用是得到标定板相对于相机的变换关系。
+
+sawyer机械臂的moveit 包，https://github.com/RethinkRobotics/sawyer_moveit， 傻老婆应该下了，可以确认一下，然后按照这个教程实现moveit控制实际的机械臂，这是官方给的，照着做应该是没问题，http://sdk.rethinkrobotics.com/intera/MoveIt_Tutorial。我们是自己的机械臂，所以这部分都是我自己做的，本来有点麻烦，现在有了官方做好的，就省很多事啦。原来以为不要用moveit，但是后面标定的时候不是自己随便动，
+都是handeye那个包算好的姿态，必须用moveit规划控制才行。
+这里再说一下这个教程运行的步骤，从教程的tutorial开始，
+运行机械臂的控制程序，这个傻老婆应该熟 rosrun intera_interface enable_robot.py -e，
+再运行接口控制程序 rosrun intera_interface joint_trajectory_action_server.py，
+再运行moveit的程序，傻老婆的机械臂应给是带electric grippers的吧，那就是 roslaunch sawyer_moveit_config sawyer_moveit.launch electric_gripper:=true
+然后是测试一下能不能动，拖动手爪上的那个球，不能拖动太多哦，要不然不知道会规划成什么样呢；
+接着点左下那一大栏里面的第二个planning，这个可以参考教程里的图案，然后planning下的点击plan，会看到机械臂规划了一条轨迹，傻老婆看不清可以再点一次plan；
+如果觉得轨迹好的话，就点execute, 然后机械臂动了而且moveit里也动了就好啦；
+教程里其他那些暂时用不到，以后要是傻老婆需要可以去看看呀。之所以还要单独说一下，是怕傻老婆看了他教程里面的其他部分，看不太懂，然后
+怕误操作碰到哪就不好啦。
+
+realsense相机驱动程序，这个比较麻烦，
+首先安装库文件,这个过程中记得别把相机插电脑上呀！！！，傻老婆想把库下载到哪就进哪个目录，然后
+mkdir realsense,
+cd realsense,
+git clone https://github.com/IntelRealSense/librealsense.git,
+cd librealsense,
+sudo apt-get update && sudo apt-get upgrade && sudo apt-get dist-upgrade，
+sudo apt-get install git libssl-dev libusb-1.0-0-dev pkg-config libgtk-3-dev，
+sudo apt-get install libglfw3-dev，
+./scripts/setup_udev_rules.sh，
+mkdir build,
+cd build,
+cmake ../,
+sudo make uninstall && make clean && make && sudo make install,
+cd ../
+sudo cp config/99-realsense-libusb.rules /etc/udev/rules.d,
+sudo udevadm control --reload-rules && udevadm trigger,
+下面这几步我没有相机不知道不做是不是可以，但是网上教程说这几步很重要，但是这几步会给系统安装新的内核，不确定会不会引发一些未知的后果，我照着做了，目前来看没问题，以前的我自己的程序也能运行。
+uname -r,会显示系统内核版本，傻老婆一定要记住呀，很重要啊！！！！！，
+sudo apt-get install libssl-dev,
+./scripts/patch-realsense-ubuntu-lts.sh,
+cd ./scripts/,
+sudo gedit patch-arch.sh,
+把第11行的SRC_VERSION_ID=后面的内容替换成之前uname -r显示的那个版本，比如我的是4.15，保存退出。
+sudo ./patch-arch.sh,
+如果提示没有这个命令，就进去找到这个文件，然后右键->属性->权限,把允许作为可执行文件打勾。
+
+下面安装realsense_ros包，
+上面已经建好了工作空间hand_eye_ws，
+cd hand_eye_ws/src,
+git clone https://github.com/IntelRealSense/realsense-ros.git,
+cd ..,
+catkin_make,
+这里有可能会出错提示找不到ddynamic_reconfigureConfig.cmake，这时候运行，
+sudo apt-get install ros-kinetic-ddynamic-reconfigure，
+然后再
+catkin_make。
+应该不会出问题，这一步就算完成了。然后测试一下，就在当前的终端里就行，插上相机，
+source devel/setup.bash
+roslaunch realsense2_camera rs_camera.launch，
+再重启一个终端，运行
+rviz,
+在rviz里面点击add按钮，加入image这个选项，然后image下面的topic下拉菜单下拉一下随便选一个话题就行，应该会出现图像呀，我这测试不了，没法确定。如果有图像的话，傻老婆就点击fixed_frame那个map下拉箭头，看看都有哪些frame,
+最好拍张照片记一下，后面会用到里面的名字。
+
+
+2 包都安装好了之后，下面是一个一个启动这些包，
+首先启动的是moveit和机器人那个包，这个傻老婆就按照上面那个moveit那个安装过程中启动的那几个命令行启动就行;
+
+然后启动相机包，相机包主要是启动rs_camera.launch 这个文件，
+这一段是在整个流程坐下来，如果后面标定或者某一步提示找不到camera和标定板的坐标关系的时候，才试着做一下，现在先跳过
+跳过----
+<!-- 在启动之前，傻老婆先打开这个文件，在realsense2_camera这个包里面，然后在倒数第二行，就是</launch>上面一行加上
+  <node pkg="tf" type="static_transform_publisher" name="camera_to_base" args="0 0 0 0 0 0 base camera_link 100" />
+形式是这样，但是有些地方要改一下，首先是后面那个camera_link那个要改成之前测试camera的时候的rviz里看到的camera的link名，不知道是不是叫camera_link，我没有实物，看不到;
+还有就是args后面那几个数字“0 0 0 0 0 0”要改掉，改成现在camera在base坐标系下的位姿,这个可以用尺子大概量一下，给个大概的数值就行了，这句话的作用是发布一个base到camera的静态坐标，
+要不然rviz里面的tf关系就不是一个整体。这一步做好了之后，就可以开始启动了。--> 
+跳过结束---
+
+首先是source工作空间，先进入工作空间目录，这个傻老婆根据实际情况啊，就是hand_eye_ws那个目录，cd hand_eye_ws，
+source devel/setup.bash,
+roslaunch realsense2_camera rs_camera.launch 
+
+
+接着启动aruco_ros，这里要改一下参数，打开aruco_ros包里的single.launch文件，然后看一下都有哪些参数，其中相机的那些参数要跟当前打开的相机匹配上，在已经启动了相机驱动程序的基础上，就是上一步已经执行了，
+打开终端，输入rqt_graph，然后找到带着/camera_info字样的那个话题的全称，替换到launch文件里的"/camera_info" 后面 to等于号后面引号里的内容，image那个也是，找到带image_rect_color字样的话题的全称替换，
+还有标定板的尺寸和ID啊，还有相机的坐标系这些变量都要替换，下面这是easy_handeye里买那个ur标定的例子里面的对aruco_ros这个节点的变量值的替换，可以参考一下，很多名字都比较相似。
+        <remap from="/camera_info" to="/camera/rgb" />
+        <remap from="/image" to="/camera/rgb/image_rect_color" />
+        <param name="image_is_rectified" value="true"/>
+        <param name="marker_size"        value="$(arg marker_size)"/>
+        <param name="marker_id"          value="$(arg marker_id)"/>
+        <param name="reference_frame"    value="camera_link"/>
+        <param name="camera_frame"       value="camera_rgb_optical_frame"/>
+        <param name="marker_frame"       value="camera_marker" />
+都改好之后，可以关闭rqt_graph，
+打开新的终端，还是这个工作空间cd hand_eye_ws，
+source devel/setup.bash,
+roslaunch aruco_ros single.launch, 
+
+下面启动easy_handeye，
+这个启动的launch文件应该是和 easy_handeye/docs/example_launch下面那个launch文件差不多，我改了一下，傻老婆复制一下，然后在easy_handeye那个包下面的launch文件夹/easy_handeye/easy_handeye/launch
+里面新建一个launch文件，这个路径跟前面example_launch不是一个呀，傻老婆别弄错啦，名字就取calibrate_realsense.launch就行啦，
+把这一段粘贴进去。
+<launch>
+    <arg name="namespace_prefix" default="sawyer_realsense_handeyecalibration" />
+
+    <!-- start easy_handeye -->
+    <include file="$(find easy_handeye)/launch/calibrate.launch" >
+        <arg name="namespace_prefix" value="$(arg namespace_prefix)" />
+        <arg name="eye_on_hand" value="false" />
+	<arg name="start_rviz" value="false" />
+        <arg name="tracking_base_frame" value="camera_link" />
+        <arg name="tracking_marker_frame" value="camera_marker" />
+        <arg name="robot_base_frame" value="base_link" />
+        <arg name="robot_effector_frame" value="wrist_3_link" />
+
+        <arg name="freehand_robot_movement" value="false" />
+        <arg name="robot_velocity_scaling" value="0.5" />
+        <arg name="robot_acceleration_scaling" value="0.2" />
+    </include>
+
+</launch>
+然后打开终端，进入这个工作空间，傻老婆应该知道什么是工作空间了吧，然后
+source devel/setup.bash，
+roslaunch easy_handeye calibrate_realsense.launch,
+下面应该就会出来两个界面，可以开始标定啦。标定过程按着这个教程呀，https://www.wengbi.com/thread_77528_1.html，
+先点击check starting pose,
+然后等一会，大概5秒，等check完了，提示会从hello变成cannot calibrate....,然后点next pose，然后plan亮了可以点plan,如果显示good plan，就点执行，然后另外一个界面点take sample,
+就这样重复到所有姿态全部走完，进度条到百分之百，然后点compute,之后save,数据保存在~/.ros/easy_handeye/---.yaml，这个---.yaml的---是前面calibrate_realsense.launch文件里面的namespace_prefix，应该是
+sawyer_realsense_handeyecalibration.yaml,还有~/.ros这个文件夹是在隐藏文件夹里，傻老婆在home里面用ctrl+h就能显示隐藏文件夹啦
+
+整个过程中可能会遇到一些问题傻老婆可能会不太熟悉，一定不着急，其实傻老婆做的很快啦，加油加油加油呀
+
+
+

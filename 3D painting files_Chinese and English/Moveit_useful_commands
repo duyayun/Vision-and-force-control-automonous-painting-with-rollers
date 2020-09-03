@@ -1,0 +1,19 @@
+roscore
+
+./intera.sh
+rosrun intera_interface enable_robot.py -e
+rosrun intera_interface joint_trajectory_action_server.py
+
+./intera.sh
+rosrun intera_interface enable_robot.py -e
+roslaunch sawyer_moveit_config sawyer_moveit.launch electric_gripper:=true
+
+./intera.sh
+rosrun intera_interface enable_robot.py -e
+rosrun sawyer_moveit_config move_group_python_interface.py
+
+clockdiff -o 169.254.154.21
+sudo date -s hh:mm:ss
+
+{'right_j6': -1.9750087890625, 'right_j5': 1.3638818359375, 'right_j4': -0.59519140625, 'right_j3': 1.520181640625, 'right_j2': 1.1178447265625, 'right_j1': -0.9766328125, 'right_j0': -0.239791015625}
+

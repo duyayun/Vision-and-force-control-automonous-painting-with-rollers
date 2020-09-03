@@ -1,0 +1,19 @@
+work space is /home/ws_moveit/src
+1.Start Rviz
+roslaunch <panda_moveit_config demo.launch> 
+
+2.MoveGroup node
+rosrun <moveit_tutorials move_group_python_interface_tutorial.py>
+
+
+Sawyer Robot
+cd ~/ros_ws/
+
+1.Verify that the robot is enabled
+rosrun intera_interface enable_robot.py -e
+
+2.Start the joint trajectory controller
+
+3.In another SDK terminal session, Launch the rviz MoveIt! plugin
+roslaunch sawyer_moveit_config sawyer_moveit.launch electric_gripper:=true
+
