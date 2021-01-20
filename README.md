@@ -25,4 +25,6 @@ Since our workspace is named as 'ros_ws', the following command is frequently us
 >> rosrun intera_interface enable_robot.py -e 
 
 If you use our tutorial, our design or part of our code, please remember to cite our paper:
-Link to be added.
+http://ras.papercept.net/images/temp/IROS/files/2952.pdf
+Also, welcome to follow my personal website:
+https://yayundu.com/
